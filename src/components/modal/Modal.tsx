@@ -4,7 +4,7 @@ import { ModalProps } from 'types/interfaces';
 import 'styles/modal.css';
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, coordinates }) => {
-  if (!isOpen) return null;
+  if (!isOpen || coordinates.length === 0) return null;
 
   return (
     <div className="modal-overlay">
