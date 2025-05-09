@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "types": ["leaflet"],
+    "baseUrl": "src",
+    "types": ["leaflet", "leaflet-draw"],
     "target": "es5",
     "lib": [
       "dom",

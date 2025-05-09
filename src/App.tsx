@@ -1,7 +1,7 @@
-import React from 'react';
+import MapView from 'components/mapView/MapView';
 
-function App() {
-  return <div>Hello World!</div>;
-}
+const App = () => {
+  return <MapView />;
+};
 
 export default App;
