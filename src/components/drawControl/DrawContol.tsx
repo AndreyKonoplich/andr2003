@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMap } from 'react-leaflet';
 import { drawOptions } from 'utils/drawConfig';
 import L from 'leaflet';
+import Modal from 'components/modal/Modal';
 import 'leaflet-draw';
 
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -10,52 +11,75 @@ interface DrawControlProps {
   featureGroupRef: React.RefObject<L.FeatureGroup>;
 }
 
-const DrawControl: React.FC<DrawControlProps> = ({ featureGroupRef }) => {
-  const map = useMap();
+const extractCoordinates = (layer: any): L.LatLng[] => {
+    if (typeof layer.getLatLng === 'function') {
+      return [layer.getLatLng()];
+    }
+    if (typeof layer.getLatLngs === 'function') {
+      const latlngs = layer.getLatLngs();
+      return flattenLatLngs(latlngs);
+    }
+    return [];
+  };
+  
+  const flattenLatLngs = (latlngs: any): L.LatLng[] => {
+    if (!Array.isArray(latlngs)) return [];
+    return latlngs.flat(Infinity).filter((point): point is L.LatLng => !!point?.lat && !!point?.lng);
+  };
 
-  useEffect(() => {
-    const initializeDrawControl = () => {
-      if (!map || !featureGroupRef.current) {
-        console.error('Map or FeatureGroup not initialized');
-        return;
-      }
+  const DrawControl: React.FC<DrawControlProps> = ({ featureGroupRef }) => {
+    const map = useMap();
+    const [showModal, setShowModal] = useState(false);
+    const [coordinates, setCoordinates] = useState<L.LatLng[]>([]);
+  
+    useEffect(() => {
+      if (!map || !featureGroupRef.current) return;
   
       if (drawOptions.edit) {
         drawOptions.edit.featureGroup = featureGroupRef.current;
-      } else {
-        console.error('drawOptions.edit is undefined');
-        return;
       }
   
-      try {
-        const drawControl = new L.Control.Draw(drawOptions);
+      const drawControl = new L.Control.Draw(drawOptions);
   
-        const handleDrawCreated = (e: L.DrawEvents.Created) => {
-            const layer = e.layer as L.Layer;
-          
-            if (featureGroupRef.current) {
-              featureGroupRef.current.addLayer(layer);
-            }
-          };
-          
+      const handleDrawCreated = (e: L.DrawEvents.Created) => {
+        if (!featureGroupRef.current) return;
+      
+        const layer = e.layer;
+        featureGroupRef.current.addLayer(layer);
+      
+        const coords = extractCoordinates(layer);
+        setCoordinates(coords);
+      
+      
+        if (e.layer instanceof L.Marker) {
+          const latlng = coords[0];  
+          layer.bindPopup(`Координаты: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`).openPopup();
+        } else {
+          setShowModal(true);
+        }
+      };
+      
   
-        map.addLayer(featureGroupRef.current);
-        map.addControl(drawControl);
-        map.on(L.Draw.Event.CREATED, handleDrawCreated as L.LeafletEventHandlerFn);
+      map.addLayer(featureGroupRef.current);
+      map.addControl(drawControl);
+      map.on(L.Draw.Event.CREATED, handleDrawCreated as L.LeafletEventHandlerFn);
   
-        return () => {
-          map.off(L.Draw.Event.CREATED, handleDrawCreated as L.LeafletEventHandlerFn);
-          map.removeControl(drawControl);
-        };
-      } catch (error) {
-        console.error('Error initializing draw control:', error);
-      }
-    };
+      return () => {
+        map.off(L.Draw.Event.CREATED, handleDrawCreated as L.LeafletEventHandlerFn);
+        map.removeControl(drawControl);
+      };
+    }, [map, featureGroupRef]);
   
-    initializeDrawControl();
-  }, [map, featureGroupRef]);
+    return (
+      <>
+        <Modal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          coordinates={coordinates}
+        />
+      </>
+    );
+  };
   
-  return null;
-};
 
 export default DrawControl;
